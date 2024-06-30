@@ -12,8 +12,10 @@ import faker
 from django.apps import apps
 from django.db import models
 
+T = typing.TypeVar("T", bound="models.Model")
 
-class Factory[T: "models.Model"]:
+
+class Factory(typing.Generic[T]):
     """The base factory class for creating model instances.
 
     A factory is a class that is used to create model instances
