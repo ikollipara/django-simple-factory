@@ -1,6 +1,7 @@
 from django.test import TestCase
 
 from django_factory.factories import Factory
+from django_factory.mixins import FactoryTestMixin
 from posts import factories, models
 
 # Create your tests here.
@@ -60,3 +61,24 @@ class TestFactory(TestCase):
         post = post_factory.make(title="Test Title")
         self.assertIsNotNone(post)
         self.assertEqual(post.title, "Test Title")
+
+
+class TestFactoryTestMixin(FactoryTestMixin, TestCase):
+
+    factories = [factories.PostFactory, "posts.CommentFactory"]
+
+    def test_factory_make_returns_instance(self):
+        post_factory = self.factories[models.Post]
+        post = post_factory.make()
+        self.assertIsNotNone(post)
+        self.assertIsInstance(post, post_factory.model)
+
+    def test_factory_can_make_comment(self):
+        comment_factory = self.factories["posts.Comment"]
+        comment = comment_factory.make()
+        self.assertIsNotNone(comment)
+        self.assertIsInstance(comment, comment_factory.model)
+        self.assertIsNotNone(comment.post)
+        self.assertIsInstance(comment.post, models.Post)
+        self.assertIsNotNone(comment.post.pk)
+        self.assertEqual(models.Post.objects.count(), 1)

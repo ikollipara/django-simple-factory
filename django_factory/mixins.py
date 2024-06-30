@@ -16,9 +16,9 @@ if typing.TYPE_CHECKING:
     from django.db.models import Model
 
 
-class __FactoryDictionary(dict):
+class _FactoryDictionary(dict):
 
-    def __getitem__(self, key: str | type[Model]):
+    def __getitem__(self, key: str | type["Model"]):
         if isinstance(key, str):
             key = apps.get_model(key)
         return super().__getitem__(key)
@@ -57,11 +57,12 @@ class FactoryTestMixin(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        factories = __FactoryDictionary()
+        factories = _FactoryDictionary()
         for factory in cls.factories:
-            if isinstance(factory, str):
-                factory = Factory.get_factory(factory)
-                factories[factory.model] = factory()
-            else:
-                factories[factory.model] = factory()
+            factory_instance = (
+                factory()
+                if not isinstance(factory, str)
+                else Factory.get_factory(factory)()
+            )
+            factories[factory_instance.model] = factory_instance
         cls.factories = factories
