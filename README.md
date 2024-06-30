@@ -1,4 +1,4 @@
-# Django Factory
+# Django Simple Factory
 
 A simple factory implementation built upon `Faker`.
 
@@ -9,10 +9,10 @@ pip install django-factory
 
 ## Usage
 To use factories, create a `factories.py` inside of a Django app.
-Then subclass the `django_factories.factories.Factory` class.
+Then subclass the `django_simple_factory.factories.Factory` class.
 To define the model generation, override the `definition` method.
 ```python
-from django_factories.factories import Factory
+from django_simple_factory.factories import Factory
 from posts import models
 
 class PostFactory(Factory):
@@ -30,7 +30,7 @@ class CommentFactory(Factory):
     def definition(self):
         return {
             "content": self.faker.text(),
-            "post": PostFactory() # You can provide either a factory instance or a factory string (e.g "posts.PostFactory")
+            "post": PostFactory() # You can provide either a factory instance or a factory string (e.g)
         }
 ```
 
@@ -43,7 +43,7 @@ post_factory.create() # Does Persist
 
 To enable easier testing, a `FactoryTestMixin` has been included that enables rich definition of factories.
 ```python
-from django_factories.mixins import FactoryTestMixin
+from django_simple_factory.mixins import FactoryTestMixin
 from django.test import TestCase
 from posts import models
 
@@ -57,7 +57,7 @@ class PostTest(FactoryTestMixin, TestCase):
 
 ## API
 
-### `django_factories.factories.Factory`
+### `django_simple_factory.factories.Factory`
 The primary class of the package, factories allow for simple and easy testing of Django models.
 
 | Method | Description |

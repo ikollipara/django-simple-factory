@@ -1,4 +1,5 @@
-from django_factory.factories import Factory
+from django_simple_factory.factories import Factory
+
 from posts.models import Comment, Post
 
 

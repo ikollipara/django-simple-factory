@@ -1,7 +1,7 @@
 from django.test import TestCase
 
-from django_factory.factories import Factory
-from django_factory.mixins import FactoryTestMixin
+from django_simple_factory.factories import Factory
+from django_simple_factory.mixins import FactoryTestMixin
 from posts import factories, models
 
 # Create your tests here.

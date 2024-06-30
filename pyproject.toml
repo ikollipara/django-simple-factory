@@ -3,7 +3,7 @@ requires = ["flit_core>=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "django-factory"
+name = "django-simple-factory"
 authors = [{ name = "Ian Kollipara", email = "ian.kollipara@cune.edu" }]
 dynamic = ["version", "description"]
 readme = "README.md"
@@ -16,5 +16,5 @@ classifiers = [
 dependencies = ["django", "Faker"]
 
 [project.urls]
-"Homepage" = "https://github.com/ikollipara/django-factory"
-"Bug Tracker" = "https://github.com/ikollipara/django-factory/issues"
+"Homepage" = "https://github.com/ikollipara/django-simple-factory"
+"Bug Tracker" = "https://github.com/ikollipara/django-simple-factory/issues"

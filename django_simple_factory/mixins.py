@@ -10,7 +10,7 @@ import unittest
 
 from django.apps import apps
 
-from django_factory.factories import Factory
+from django_simple_factory.factories import Factory
 
 if typing.TYPE_CHECKING:
     from django.db.models import Model
