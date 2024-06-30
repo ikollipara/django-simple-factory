@@ -4,7 +4,7 @@ A simple factory implementation built upon `Faker`.
 
 ## Installation
 ```
-pip install django-factory
+pip install django-simple-factory
 ```
 
 ## Usage
