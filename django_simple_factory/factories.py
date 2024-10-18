@@ -7,6 +7,7 @@ This file defines the base Factory class used by `django_factory`
 
 # Imports
 import typing
+from itertools import cycle
 
 import faker
 from django.apps import apps
@@ -28,6 +29,7 @@ class Factory(typing.Generic[T]):
 
     Attributes:
         - model (typing.Type[T] | str): The model that the factory will create.
+        - create_method (callable[[dict], T] | None): The method used when creating a model. Defaults to `.save()`.
 
     Methods:
         - get_factory: Get the factory for a given app and factory name.
@@ -41,10 +43,11 @@ class Factory(typing.Generic[T]):
     """
 
     model: typing.Type[T] | str = None
+    create_method: typing.Callable[[dict], T] | None = None
     __factories: dict[str, "Factory"] = {}
 
     def __init_subclass__(cls) -> None:
-        app_name = cls.__module__.split(".")[-1]
+        app_name = cls.__module__.split(".")[-2]
         factory_name = cls.__name__
         cls.__factories[f"{app_name}.{factory_name}"] = cls
 
@@ -66,9 +69,7 @@ class Factory(typing.Generic[T]):
 
     def __init__(self):
         self.faker = self.configure_faker()
-        self.model = (
-            apps.get_model(self.model) if isinstance(self.model, str) else self.model
-        )
+        self.model = self.__get_model()
 
     def configure_faker(self) -> "faker.Faker":
         """Configure the faker instance for this factory.
@@ -104,9 +105,7 @@ class Factory(typing.Generic[T]):
             T: The made model instance.
         """
 
-        definition = self.definition()
-        for field, value in definition.items():
-            definition[field] = self.__handle_related_field(field, value, kwargs)
+        definition = self.__resolve_definition(**kwargs)
 
         return self.model(**definition)
 
@@ -120,84 +119,94 @@ class Factory(typing.Generic[T]):
             T: The created model instance.
         """
 
-        instance = self.make(**kwargs)
+        if self.create_method is None:
+            instance = self.make(**kwargs)
+            instance.save()
+            instance.refresh_from_db()
+            return instance
 
-        if i := instance.save():
-            return i
-        return instance
+        definition = self.__resolve_definition(**kwargs)
+        return self.create_method(**definition)
 
-    def create_quietly(self, **kwargs) -> T:
-        """Create a model instance quietly.
-
-        A quiet creation will not fire the `post_save` signal.
-
-        Args:
-            **kwargs: Additional keyword arguments to pass to the model.
-
-        Returns:
-            T: The created model instance.
-        """
-
-        from django.db.models import signals
-
-        has_pre_init = signals.pre_init.has_listeners(self.model)
-        has_post_init = signals.post_init.has_listeners(self.model)
-        has_pre_save = signals.pre_save.has_listeners(self.model)
-        has_post_save = signals.post_save.has_listeners(self.model)
-        try:
-            if has_pre_init:
-                signals.pre_init.disconnect(self.model)
-            if has_post_init:
-                signals.post_init.disconnect(self.model)
-            if has_pre_save:
-                signals.pre_save.disconnect(self.model)
-            if has_post_save:
-                signals.post_save.disconnect(self.model)
-            instance = self.create(**kwargs)
-        finally:
-            if has_pre_init:
-                signals.pre_init.connect(self.model)
-            if has_post_init:
-                signals.post_init.connect(self.model)
-            if has_pre_save:
-                signals.pre_save.connect(self.model)
-            if has_post_save:
-                signals.post_save.connect(self.model)
-
-        return instance
-
-    def make_batch(self, size: int, **kwargs) -> list[T]:
+    def make_batch(self, size: int, sequence: list[dict] = None, **kwargs) -> list[T]:
         """Make a batch of model instances.
 
         Args:
             size (int): The size of the batch.
+            sequence (list[dict]): The sequence to apply to the created models. Will be merged with kwargs.
             **kwargs: Additional keyword arguments to pass to the model.
 
         Returns:
             list[T]: The made model instances.
         """
 
-        return [self.make(**kwargs) for _ in range(size)]
+        size_range = range(size)
+        _sequence = self.__resolve_sequence_with_kwargs(
+            sequence or [dict() for _ in size_range], kwargs
+        )
 
-    def create_batch(self, size: int, **kwargs) -> list[T]:
+        return [self.make(**params) for params, _ in zip(cycle(_sequence), size_range)]
+
+    def create_batch(self, size: int, sequence: list[dict] = None, **kwargs) -> list[T]:
         """Create a batch of model instances.
 
         Args:
             size (int): The size of the batch.
+            sequence (list[dict]): The sequence to apply to the created models. Will be merged with kwargs.
             **kwargs: Additional keyword arguments to pass to the model.
 
         Returns:
             list[T]: The created model instances.
         """
 
-        return [self.create(**kwargs) for _ in range(size)]
+        size_range = range(size)
+        _sequence = self.__resolve_sequence_with_kwargs(
+            sequence or [dict() for _ in size_range], kwargs
+        )
+
+        return [
+            self.create(**params) for params, _ in zip(cycle(_sequence), size_range)
+        ]
+
+    def __resolve_sequence_with_kwargs(self, sequence, kwargs):
+        """Update the sequence dictionaries to include the kwargs."""
+
+        try:
+            return [(params | kwargs) for params in sequence]
+        except TypeError as e:
+            e.add_note("The sequence must be a list or tuple of dictionaries.")
+            raise e
+
+    def __get_model(self):
+        """Resolve the model for the factory."""
+
+        if isinstance(self.model, str):
+            return apps.get_model(self.model)
+
+        return self.model
+
+    def __resolve_definition(self, **kwargs):
+        """Resolve the definition for the factory."""
+
+        definition = self.definition()
+        for field, value in definition.items():
+            definition[field] = self.__handle_related_field(field, value, kwargs)
+
+        return definition
 
     def __handle_related_field(self, field, value, kwargs):
+        """Handle the creation of related models for the factory."""
+
         if field in kwargs.keys() and isinstance(kwargs[field], models.Model):
             return kwargs[field]
+
         if isinstance(value, Factory):
             return value.create(**kwargs.get(field, {}))
+
+        # Handles the case where the provided value
+        # is a factory string like "posts.PostFactory"
         if value in self.__factories.keys():
             factory = self.__factories[value]()
             return factory.create(**kwargs.get(field, {}))
+
         return kwargs.get(field, value)

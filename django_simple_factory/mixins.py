@@ -16,7 +16,7 @@ if typing.TYPE_CHECKING:
     from django.db.models import Model
 
 
-class _FactoryDictionary(dict):
+class _FactoryDictionary(dict["Model", Factory]):
 
     def __getitem__(self, key: str | type["Model"]):
         if isinstance(key, str):
@@ -35,7 +35,8 @@ class FactoryTestMixin(unittest.TestCase):
     `factories` attribute of the test class. The factories
     can be either the factory class or the factory name as a string.
 
-    The factories dictionary uses the factories's model as the key
+    Then use the `FactoryTestMixin.get_factory_for` helper to get a particular
+    factory. This method also accepts a type parameter to handle the type of the model.
 
     Example:
     ```python
@@ -44,7 +45,7 @@ class FactoryTestMixin(unittest.TestCase):
         factories = [PostFactory, "posts.CommentFactory"]
 
         def test_factory_make_returns_instance(self):
-            post_factory = self.factories[models.Post]
+            post_factory = self.get_factory_for(models.Post)
             post = post_factory.make()
     ```
 
@@ -66,3 +67,8 @@ class FactoryTestMixin(unittest.TestCase):
             )
             factories[factory_instance.model] = factory_instance
         cls.factories = factories
+
+    def get_factory_for[T: "Model"](self, model: typing.Type[T] | str) -> Factory[T]:
+        """Get the given factory for use in the tests."""
+
+        return self.factories[model]

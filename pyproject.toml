@@ -18,3 +18,8 @@ dependencies = ["django", "Faker"]
 [project.urls]
 "Homepage" = "https://github.com/ikollipara/django-simple-factory"
 "Bug Tracker" = "https://github.com/ikollipara/django-simple-factory/issues"
+
+[tool.uv]
+dev-dependencies = [
+    "coverage>=7.6.3",
+]

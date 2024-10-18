@@ -9,6 +9,10 @@ from posts import factories, models
 
 class TestFactory(TestCase):
 
+    def test_factory_must_be_implemented(self):
+        with self.assertRaises(NotImplementedError):
+            Factory().make()
+
     def test_get_factory(self):
         post_factory = Factory.get_factory("posts.PostFactory")
         self.assertEqual(post_factory, factories.PostFactory)
@@ -26,12 +30,28 @@ class TestFactory(TestCase):
         self.assertIsInstance(post, post_factory.model)
         self.assertIsNotNone(post.pk)
 
+    def test_factory_create_uses_custom_create_method_and_returns_instance(self):
+        post_factory = factories.PostFactory2()
+        post = post_factory.create()
+        self.assertIsNotNone(post)
+        self.assertIsInstance(post, post_factory.model)
+        self.assertIsNotNone(post.pk)
+
     def test_factory_make_batch_returns_list(self):
         post_factory = factories.PostFactory()
         posts = post_factory.make_batch(3)
         self.assertIsNotNone(posts)
         self.assertIsInstance(posts, list)
         self.assertEqual(len(posts), 3)
+
+    def test_factory_make_batch_with_seq_returns_list(self):
+        post_factory = factories.PostFactory()
+        posts = post_factory.make_batch(3, sequence=[{"content": "Hello"}])
+        self.assertIsNotNone(posts)
+        self.assertIsInstance(posts, list)
+        self.assertEqual(len(posts), 3)
+        for post in posts:
+            self.assertEqual(post.content, "Hello")
 
     def test_factory_create_batch_returns_list(self):
         post_factory = factories.PostFactory()
@@ -42,12 +62,36 @@ class TestFactory(TestCase):
         for post in posts:
             self.assertIsNotNone(post.pk)
 
+    def test_factory_create_batch_with_seq_returns_list(self):
+        post_factory = factories.PostFactory()
+        posts = post_factory.create_batch(3, sequence=[{"content": "Hello"}])
+        self.assertIsNotNone(posts)
+        self.assertIsInstance(posts, list)
+        self.assertEqual(len(posts), 3)
+        for post in posts:
+            self.assertIsNotNone(post.pk)
+            self.assertEqual(post.content, "Hello")
+
+    def test_factory_with_incorrect_seq_raises_type_error(self):
+        post_factory = factories.PostFactory()
+        with self.assertRaises(TypeError):
+            posts = post_factory.create_batch(3, sequence=[[]])
+
     def test_factory_handles_related_field(self):
         comment_factory = factories.CommentFactory()
         comment = comment_factory.create()
         self.assertIsNotNone(comment)
         self.assertIsNotNone(comment.pk)
         self.assertEqual(models.Post.objects.count(), 1)
+
+    def test_factory_handles_related_field_model(self):
+        comment_factory = factories.CommentFactory()
+        post = factories.PostFactory().create()
+        comment = comment_factory.create(post=post)
+        self.assertIsNotNone(comment)
+        self.assertIsNotNone(comment.pk)
+        self.assertEqual(models.Post.objects.count(), 1)
+        self.assertEqual(comment.post, post)
 
     def test_factory_handles_related_field_string(self):
         comment_factory = factories.CommentFactory2()
@@ -62,19 +106,27 @@ class TestFactory(TestCase):
         self.assertIsNotNone(post)
         self.assertEqual(post.title, "Test Title")
 
+    def test_factory_handles_related_field_attr_overrides(self):
+        comment_factory = factories.CommentFactory2()
+        comment = comment_factory.create(post={"title": "My Title"})
+        self.assertIsNotNone(comment)
+        self.assertIsNotNone(comment.pk)
+        self.assertEqual(models.Post.objects.count(), 1)
+        self.assertEqual(comment.post.title, "My Title")
+
 
 class TestFactoryTestMixin(FactoryTestMixin, TestCase):
 
     factories = [factories.PostFactory, "posts.CommentFactory"]
 
     def test_factory_make_returns_instance(self):
-        post_factory = self.factories[models.Post]
+        post_factory = self.get_factory_for(models.Post)
         post = post_factory.make()
         self.assertIsNotNone(post)
         self.assertIsInstance(post, post_factory.model)
 
     def test_factory_can_make_comment(self):
-        comment_factory = self.factories["posts.Comment"]
+        comment_factory = self.get_factory_for("posts.Comment")
         comment = comment_factory.make()
         self.assertIsNotNone(comment)
         self.assertIsInstance(comment, comment_factory.model)
