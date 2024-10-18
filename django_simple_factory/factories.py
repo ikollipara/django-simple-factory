@@ -44,12 +44,12 @@ class Factory(typing.Generic[T]):
     __factories: dict[str, "Factory"] = {}
 
     def __init_subclass__(cls) -> None:
-        app_name = cls.__module__.split(".")[0]
+        app_name = cls.__module__.split(".")[-1]
         factory_name = cls.__name__
         cls.__factories[f"{app_name}.{factory_name}"] = cls
 
     @classmethod
-    def get_factory(cls, app_name: str, factory_name: str = None) -> "Factory":
+    def get_factory[T](cls, app_name: str, factory_name: str = None) -> "Factory[T]":
         """Get the factory for a given app and factory name.
 
         If the factory name is not provided, it is assumed that the
