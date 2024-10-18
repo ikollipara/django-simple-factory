@@ -5,8 +5,11 @@ Ian Kollipara <ian.kollipara@cune.edu>
 This file defines the base Factory class used by `django_factory`
 """
 
-# Imports
 import typing
+
+# Imports
+from copy import deepcopy
+from functools import reduce
 from itertools import cycle
 
 import faker
@@ -186,13 +189,23 @@ class Factory(typing.Generic[T]):
         return self.model
 
     def __resolve_definition(self, **kwargs):
-        """Resolve the definition for the factory."""
+        """Resolve the definition for the factory using the provided keyword arguments."""
 
         definition = self.definition()
+        kwargs = self.__handle_django_relationship_kwargs(kwargs)
         for field, value in definition.items():
             definition[field] = self.__handle_related_field(field, value, kwargs)
 
         return definition
+
+    def __handle_django_relationship_kwargs(self, kwargs: dict):
+        _kwargs = deepcopy(kwargs)
+        for keyword, value in ((k, v) for k, v in kwargs.items() if "__" in k):
+            *models, property = keyword.split("__")
+            nested_structure = _list_to_nested_dict(models, property, value)
+            _kwargs.update(nested_structure)
+
+        return _kwargs
 
     def __handle_related_field(self, field, value, kwargs):
         """Handle the creation of related models for the factory."""
@@ -210,3 +223,9 @@ class Factory(typing.Generic[T]):
             return factory.create(**kwargs.get(field, {}))
 
         return kwargs.get(field, value)
+
+
+def _list_to_nested_dict(lst, property, value):
+    if not lst:
+        return {property: value}
+    return {lst[0]: _list_to_nested_dict(lst[1:], property, value)}

@@ -50,6 +50,15 @@ comment.content # Hello
 comment.post.title # My Post
 ```
 
+Alternatively, you may use the "django-style" of `post__title="My Title"`.
+```python
+comment_factory = CommentFactory()
+comment = comment_factory.make(content="Hello", post__title="My Post")
+
+comment.content # Hello
+comment.post.title # My Post
+```
+
 To enable easier testing, a `FactoryTestMixin` has been included that enables rich definition of factories.
 ```python
 from django_simple_factory.mixins import FactoryTestMixin

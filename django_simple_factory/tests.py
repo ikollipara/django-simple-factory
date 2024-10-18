@@ -114,6 +114,14 @@ class TestFactory(TestCase):
         self.assertEqual(models.Post.objects.count(), 1)
         self.assertEqual(comment.post.title, "My Title")
 
+    def test_factory_handles_related_field_django_style_attr_overrides(self):
+        comment_factory = factories.CommentFactory2()
+        comment = comment_factory.create(post__title="My Title")
+        self.assertIsNotNone(comment)
+        self.assertIsNotNone(comment.pk)
+        self.assertEqual(models.Post.objects.count(), 1)
+        self.assertEqual(comment.post.title, "My Title")
+
 
 class TestFactoryTestMixin(FactoryTestMixin, TestCase):
 
