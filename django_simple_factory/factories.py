@@ -1,5 +1,5 @@
 """
-factories.py
+registry.py
 Ian Kollipara <ian.kollipara@cune.edu>
 
 This file defines the base Factory class used by `django_factory`
@@ -47,12 +47,7 @@ class Factory(typing.Generic[T]):
 
     model: typing.Type[T] | str = None
     create_method: typing.Callable[[dict], T] | None = None
-    __factories: dict[str, "Factory"] = {}
-
-    def __init_subclass__(cls) -> None:
-        app_name = cls.__module__.split(".")[-2]
-        factory_name = cls.__name__
-        cls.__factories[f"{app_name}.{factory_name}"] = cls
+    _registry: dict[str, "Factory"] = {}
 
     @classmethod
     def get_factory[T](cls, app_name: str, factory_name: str = None) -> "Factory[T]":
@@ -68,7 +63,7 @@ class Factory(typing.Generic[T]):
 
         if factory_name is None:
             app_name, factory_name = app_name.split(".")
-        return cls.__factories[f"{app_name}.{factory_name}"]
+        return cls._registry[f"{app_name}.{factory_name}"]
 
     def __init__(self):
         self.faker = self.configure_faker()
@@ -218,8 +213,8 @@ class Factory(typing.Generic[T]):
 
         # Handles the case where the provided value
         # is a factory string like "posts.PostFactory"
-        if value in self.__factories.keys():
-            factory = self.__factories[value]()
+        if value in self._registry.keys():
+            factory = self._registry[value]()
             return factory.create(**kwargs.get(field, {}))
 
         return kwargs.get(field, value)
