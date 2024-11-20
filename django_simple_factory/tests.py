@@ -8,7 +8,6 @@ from posts import factories, models
 
 
 class TestFactory(TestCase):
-
     def test_factory_must_be_implemented(self):
         with self.assertRaises(NotImplementedError):
             Factory().make()
@@ -17,11 +16,26 @@ class TestFactory(TestCase):
         post_factory = Factory.get_factory("posts.PostFactory")
         self.assertEqual(post_factory, factories.PostFactory)
 
+    def test_has_with_a_non_existent_factory_throws_a_value_error(self):
+        post_factory = factories.PostFactory()
+        with self.assertRaises(ValueError):
+            post_factory.has("likes")
+
+    def test_has_with_a_unrelated_name_throws_a_lookup_error(self):
+        post_factory = factories.PostFactory()
+        with self.assertRaises(LookupError):
+            post_factory.has("unrelated")
+
     def test_factory_make_returns_instance(self):
         post_factory = factories.PostFactory()
         post = post_factory.make()
         self.assertIsNotNone(post)
         self.assertIsInstance(post, post_factory.model)
+
+    def test_factory_make_with_has_throws_value_error(self):
+        post_factory = factories.PostFactory()
+        with self.assertRaises(ValueError):
+            post_factory.has("comments", count=2).make()
 
     def test_factory_create_returns_instance(self):
         post_factory = factories.PostFactory()
@@ -29,6 +43,26 @@ class TestFactory(TestCase):
         self.assertIsNotNone(post)
         self.assertIsInstance(post, post_factory.model)
         self.assertIsNotNone(post.pk)
+
+    def test_factory_create_with_has_returns_instance(self):
+        post_factory = factories.PostFactory()
+        post = post_factory.has("comments", count=5).create()
+        self.assertIsNotNone(post)
+        self.assertIsInstance(post, post_factory.model)
+        self.assertIsNotNone(post.pk)
+        self.assertEqual(post.comments.count(), 5)
+
+    def test_factory_create_with_has_sequence_returns_instance(self):
+        post_factory = factories.PostFactory()
+        post = post_factory.has(
+            "comments", count=5, sequence=[{"content": "Hello"}, {"content": "Post"}]
+        ).create()
+        self.assertIsNotNone(post)
+        self.assertIsInstance(post, post_factory.model)
+        self.assertIsNotNone(post.pk)
+        self.assertEqual(post.comments.count(), 5)
+        for comment in post.comments.all():
+            self.assertIn(comment.content, ("Hello", "Post"))
 
     def test_factory_create_uses_custom_create_method_and_returns_instance(self):
         post_factory = factories.PostFactory2()
@@ -124,7 +158,6 @@ class TestFactory(TestCase):
 
 
 class TestFactoryTestMixin(FactoryTestMixin, TestCase):
-
     factories = [factories.PostFactory, "posts.CommentFactory"]
 
     def test_factory_make_returns_instance(self):

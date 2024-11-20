@@ -12,12 +12,11 @@ from django.apps import apps
 
 from django_simple_factory.factories import Factory
 
-if typing.TYPE_CHECKING:
+if typing.TYPE_CHECKING:  # pragma: no cover
     from django.db.models import Model
 
 
 class _FactoryDictionary(dict["Model", Factory]):
-
     def __getitem__(self, key: str | type["Model"]):
         if isinstance(key, str):
             key = apps.get_model(key)

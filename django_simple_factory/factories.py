@@ -5,18 +5,25 @@ Ian Kollipara <ian.kollipara@cune.edu>
 This file defines the base Factory class used by `django_factory`
 """
 
-import typing
-
 # Imports
+import dataclasses
+import typing
 from copy import deepcopy
-from functools import reduce
 from itertools import cycle
 
 import faker
 from django.apps import apps
+from django.core import exceptions
 from django.db import models
 
 T = typing.TypeVar("T", bound="models.Model")
+
+
+@dataclasses.dataclass
+class _RelatedGeneration:
+    field_name: str
+    factory: "Factory"
+    kwargs: dict = dataclasses.field(default_factory=dict)
 
 
 class Factory(typing.Generic[T]):
@@ -47,7 +54,7 @@ class Factory(typing.Generic[T]):
 
     model: typing.Type[T] | str = None
     create_method: typing.Callable[[dict], T] | None = None
-    _registry: dict[str, "Factory"] = {}
+    _registry: dict[str, typing.Type["Factory"]] = {}
 
     @classmethod
     def get_factory[T](cls, app_name: str, factory_name: str = None) -> "Factory[T]":
@@ -67,7 +74,8 @@ class Factory(typing.Generic[T]):
 
     def __init__(self):
         self.faker = self.configure_faker()
-        self.model = self.__get_model()
+        self.model = self._get_model()
+        self._related_generation: list[_RelatedGeneration] = []
 
     def configure_faker(self) -> "faker.Faker":
         """Configure the faker instance for this factory.
@@ -93,6 +101,36 @@ class Factory(typing.Generic[T]):
 
         raise NotImplementedError("The definition method must be overriden.")
 
+    def has(
+        self,
+        related_name: str,
+        *,
+        count: int = 1,
+        sequence: list[dict] = None,
+        **kwargs,
+    ):
+        """Queue up multiple dependent relationships to create.
+
+        The related name should be the related name from the model.
+        If a factory implementation exists for it, it will use that.
+        Otherwise a ValueError is thrown.
+        """
+
+        sequence = self.__resolve_sequence(count, sequence)
+
+        model = self._get_model()
+        related_model_field_name, related_factory = self.__resolve_related_field(
+            model, related_name
+        )
+        kwargs = self.__handle_django_relationship_kwargs(kwargs)
+
+        self._related_generation += [
+            _RelatedGeneration(related_model_field_name, related_factory, model_kwargs)
+            for model_kwargs in self.__resolve_sequence_with_kwargs(sequence, kwargs)
+        ]
+
+        return self
+
     def make(self, **kwargs) -> T:
         """Make a model instance.
 
@@ -102,6 +140,9 @@ class Factory(typing.Generic[T]):
         Returns:
             T: The made model instance.
         """
+
+        if len(self._related_generation) > 0:
+            raise ValueError("Cannot use make when trying to create dependent models!")
 
         definition = self.__resolve_definition(**kwargs)
 
@@ -117,14 +158,22 @@ class Factory(typing.Generic[T]):
             T: The created model instance.
         """
 
-        if self.create_method is None:
-            instance = self.make(**kwargs)
-            instance.save()
-            instance.refresh_from_db()
-            return instance
-
         definition = self.__resolve_definition(**kwargs)
-        return self.create_method(**definition)
+        if self.create_method is None:
+            instance = self.model(**definition)
+            instance.save()
+        else:
+            instance = self.create_method(**definition)
+
+        instance.refresh_from_db()
+
+        for related_gen in self._related_generation:
+            related_gen.factory.create(
+                **(related_gen.kwargs | {related_gen.field_name: instance})
+            )
+        self._related_generation.clear()
+
+        return instance
 
     def make_batch(self, size: int, sequence: list[dict] = None, **kwargs) -> list[T]:
         """Make a batch of model instances.
@@ -175,13 +224,14 @@ class Factory(typing.Generic[T]):
             e.add_note("The sequence must be a list or tuple of dictionaries.")
             raise e
 
-    def __get_model(self):
+    @classmethod
+    def _get_model(cls):
         """Resolve the model for the factory."""
 
-        if isinstance(self.model, str):
-            return apps.get_model(self.model)
+        if isinstance(cls.model, str):
+            return apps.get_model(cls.model)
 
-        return self.model
+        return cls.model
 
     def __resolve_definition(self, **kwargs):
         """Resolve the definition for the factory using the provided keyword arguments."""
@@ -218,6 +268,34 @@ class Factory(typing.Generic[T]):
             return factory.create(**kwargs.get(field, {}))
 
         return kwargs.get(field, value)
+
+    def __resolve_sequence(self, count: int, sequence: list[dict] | None) -> list[dict]:
+        """Resolve the provided sequence to the correct count length."""
+        if sequence is None:
+            return [dict() for _ in range(count)]
+
+        else:
+            return [seq for seq, _ in zip(cycle(sequence), range(count))]
+
+    def __resolve_related_field(self, model, related_name):
+        try:
+            related_field_name = model._meta.get_field(related_name).remote_field.name
+            related_factory = self.__get_factory_for(
+                model._meta.get_field(related_name).related_model
+            )
+            return related_field_name, related_factory
+        except exceptions.FieldDoesNotExist as e:
+            e.add_note(f"{related_name} is not a related field on the model.")
+            raise LookupError(e.args)
+
+    def __get_factory_for(
+        self, model: typing.Type[models.Model]
+    ) -> typing.Type["Factory"]:
+        for factory in (f for f in self._registry.values() if f.model is not None):
+            if factory._get_model()._meta.label == model._meta.label:
+                return factory()
+
+        raise ValueError(f"Cannot find factory for {model._meta.app_label}")
 
 
 def _list_to_nested_dict(lst, property, value):

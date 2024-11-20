@@ -14,11 +14,14 @@ class DjangoFactoryConfig(AppConfig):
 
         for config in apps.get_app_configs():
             try:
-                module = import_module(f"{config.name}.factories")
-                for item in module.__dict__.values():
-                    if isinstance(item, type) and issubclass(item, factories.Factory):
-                        factories.Factory._registry[
-                            f"{config.name.split(".")[-1]}.{item.__name__}"
-                        ] = item
+                if config.name != self.name:
+                    module = import_module(f"{config.name}.factories")
+                    for item in module.__dict__.values():
+                        if isinstance(item, type) and issubclass(
+                            item, factories.Factory
+                        ):
+                            factories.Factory._registry[
+                                f"{config.name.split(".")[-1]}.{item.__name__}"
+                            ] = item
             except (ImportError, ModuleNotFoundError):
                 pass

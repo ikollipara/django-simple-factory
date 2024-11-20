@@ -23,3 +23,6 @@ dependencies = ["django", "Faker"]
 dev-dependencies = [
     "coverage>=7.6.3",
 ]
+
+[tool.coverage.report]
+include = ["django_simple_factory/*"]
