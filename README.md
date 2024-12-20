@@ -59,6 +59,13 @@ comment.content # Hello
 comment.post.title # My Post
 ```
 
+To create related models (those that have a foreign key to the curren model) use the `has` method.
+Use the `related_name` to specify. You can optionally provide arguments and an amount to generate.
+```python
+post_factory = PostFactory()
+post = post_factory.has("comments").create() # Creates a Post with a related comment.
+```
+
 To enable easier testing, a `FactoryTestMixin` has been included that enables rich definition of factories.
 ```python
 from django_simple_factory.mixins import FactoryTestMixin

@@ -56,7 +56,6 @@ class FactoryTestMixin(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        super().setUpClass()
         factories = _FactoryDictionary()
         for factory in cls.factories:
             factory_instance = (
@@ -66,8 +65,10 @@ class FactoryTestMixin(unittest.TestCase):
             )
             factories[factory_instance.model] = factory_instance
         cls.factories = factories
+        super().setUpClass()
 
-    def get_factory_for[T: "Model"](self, model: typing.Type[T] | str) -> Factory[T]:
+    @classmethod
+    def get_factory_for[T: "Model"](cls, model: typing.Type[T] | str) -> Factory[T]:
         """Get the given factory for use in the tests."""
 
-        return self.factories[model]
+        return cls.factories[model]
