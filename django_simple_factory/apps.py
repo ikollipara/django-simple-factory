@@ -21,7 +21,7 @@ class DjangoFactoryConfig(AppConfig):
                             item, factories.Factory
                         ):
                             factories.Factory._registry[
-                                f"{config.name.split(".")[-1]}.{item.__name__}"
+                                f"{config.name.split('.')[-1]}.{item.__name__}"
                             ] = item
             except (ImportError, ModuleNotFoundError):
                 pass
