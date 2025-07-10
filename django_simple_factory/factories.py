@@ -17,6 +17,7 @@ from django.core import exceptions
 from django.db import models
 
 T = typing.TypeVar("T", bound="models.Model")
+F = typing.TypeVar("F", bound="models.Model")
 
 
 @dataclasses.dataclass
@@ -57,7 +58,7 @@ class Factory(typing.Generic[T]):
     _registry: dict[str, typing.Type["Factory"]] = {}
 
     @classmethod
-    def get_factory[T](cls, app_name: str, factory_name: str = None) -> "Factory[T]":
+    def get_factory(cls, app_name: str, factory_name: str = None) -> "Factory[F]":
         """Get the factory for a given app and factory name.
 
         If the factory name is not provided, it is assumed that the
